@@ -90,7 +90,7 @@ MiniMax T2A V2接口支持多种声音，以下是一些常用的声音ID：
 - `male-zh-yinse`: 男声-阴色
 - `female-zh-wenzhong`: 女声-温中
 
-最新的speech-02-hd和speech-02-turbo模型支持更多的声音选项和更高质量的音频输出。更多声音ID请参考MiniMax官方文档：https://platform.minimaxi.com/document/
+最新的speech-02-hd和speech-02-turbo模型支持更多的声音选项和更高质量的音频输出。更多声音ID请参考MiniMax官方文档：https://platform.minimaxi.com/document/%E5%AF%B9%E8%AF%9D
 
 ## 注意事项
 
