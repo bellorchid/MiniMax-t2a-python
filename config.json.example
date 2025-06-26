@@ -1,0 +1,17 @@
+{
+    "api_key": "your_api_key_here",
+    "group_id": "your_group_id_here",
+    "base_url": "https://api.minimaxi.com/v1/t2a_v2",
+    "temp_dir": "temp_audio",
+    "model": "speech-02-hd",
+    "default_voice": "male-qn-qingse",
+    "speed": 1,
+    "vol": 1,
+    "pitch": 0,
+    "sample_rate": 32000,
+    "bitrate": 128000,
+    "voice_map": {
+        "主持人": "Chinese (Mandarin)_Radio_Host",
+        "嘉宾": "doctor_wang_origin"
+    }
+}

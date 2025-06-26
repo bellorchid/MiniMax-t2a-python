@@ -1,0 +1,58 @@
+# Python缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 分发/打包
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 单元测试/覆盖率报告
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+
+# 虚拟环境
+venv/
+env/
+ENV/
+
+# IDE相关
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 项目特定文件
+temp_audio/
+voices_data.json
+输出音频.mp3
+
+# 敏感信息 - 实际配置文件不应提交到版本控制
+# 但我们提供了config.json.example作为模板
+config.json
+# 不要忽略示例配置
+!config.json.example
+
+# 系统文件
+.DS_Store
+Thumbs.db
