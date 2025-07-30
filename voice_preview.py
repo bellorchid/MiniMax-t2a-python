@@ -102,11 +102,15 @@ def generate_audio(text, voice_id, config):
 def index():
     voices_data = load_voices()
     system_voices = voices_data.get('system_voice', [])
+    voice_cloning = voices_data.get('voice_cloning', [])
+    
+    # 合并系统音色和克隆音色
+    all_voices = system_voices + voice_cloning
     
     # 按音色名称排序
-    system_voices.sort(key=lambda x: x.get('voice_name', ''))
+    all_voices.sort(key=lambda x: x.get('voice_name', ''))
     
-    return render_template('voice_preview.html', voices=system_voices)
+    return render_template('voice_preview.html', voices=all_voices)
 
 @app.route('/preview', methods=['POST'])
 def preview():
