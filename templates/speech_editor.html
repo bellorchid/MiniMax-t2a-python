@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiniMax 演讲语音生成工具</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            background-color: #f8f9fa;
+        }
+        .header {
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        .voice-card {
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .voice-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .voice-card.selected {
+            border-color: #0d6efd;
+            background-color: #f0f7ff;
+        }
+        .loading {
+            display: none;
+        }
+        .audio-player {
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+        .voice-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            max-height: calc(100vh - 400px);
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        .search-box {
+            margin-left: 1rem;
+            width: 300px;
+        }
+        .card-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 300px);
+            min-height: 400px;
+        }
+        .card-body-scroll {
+            flex: 1;
+            overflow: hidden;
+            padding: 0;
+        }
+        .segment-card {
+            margin-bottom: 1rem;
+            border-left: 4px solid #6c757d;
+        }
+        .segment-card.generated {
+            border-left-color: #28a745;
+        }
+        .segment-card.selected {
+            border-left-color: #0d6efd;
+            background-color: #f0f7ff;
+        }
+        .segment-tools {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .segment-text {
+            min-height: 80px;
+        }
+        .nav-tabs {
+            margin-bottom: 1rem;
+        }
+        #merge-section {
+            margin-top: 2rem;
+        }
+        .drag-handle {
+            cursor: move;
+            color: #6c757d;
+        }
+        .segment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="header">
+            <h1 class="text-center">MiniMax 演讲语音生成工具</h1>
+            <p class="text-center text-muted">上传文稿，分段处理，选择音色，生成并合并语音</p>
+        </div>
+
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="editor-tab" data-bs-toggle="tab" data-bs-target="#editor" type="button" role="tab" aria-controls="editor" aria-selected="true">文稿编辑</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="voices-tab" data-bs-toggle="tab" data-bs-target="#voices" type="button" role="tab" aria-controls="voices" aria-selected="false">音色选择</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="merge-tab" data-bs-toggle="tab" data-bs-target="#merge" type="button" role="tab" aria-controls="merge" aria-selected="false">合并下载</button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="myTabContent">
+            <!-- 文稿编辑标签页 -->
+            <div class="tab-pane fade show active" id="editor" role="tabpanel" aria-labelledby="editor-tab">
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h4>输入演讲文稿</h4>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <textarea id="full-text" class="form-control" rows="8" placeholder="请输入或粘贴完整的演讲文稿..."></textarea>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <button id="split-text-btn" class="btn btn-primary">分段处理</button>
+                                        <button id="clear-text-btn" class="btn btn-outline-secondary ms-2">清空</button>
+                                    </div>
+                                    <div>
+                                        <select id="split-method" class="form-select">
+                                            <option value="sentence">按句子分段</option>
+                                            <option value="paragraph">按段落分段</option>
+                                            <option value="custom">自定义分段</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="segments-container" class="row mb-4 d-none">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h4>文稿分段</h4>
+                                <div>
+                                    <button id="add-segment-btn" class="btn btn-sm btn-outline-primary">添加分段</button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="segments-list">
+                                    <!-- 分段将在这里动态生成 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 音色选择标签页 -->
+            <div class="tab-pane fade" id="voices" role="tabpanel" aria-labelledby="voices-tab">
+                <div class="card card-container">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h4>选择音色</h4>
+                        <div class="search-box">
+                            <input type="text" id="voice-search" class="form-control" placeholder="搜索音色...">
+                        </div>
+                    </div>
+                    <div class="card-body card-body-scroll">
+                        <div class="voice-grid" id="voice-container">
+                            {% for voice in voices %}
+                            <div class="card voice-card" data-voice-id="{{ voice.voice_id }}" data-voice-name="{{ voice.voice_name }}">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ voice.voice_name }}</h5>
+                                    <p class="card-text text-muted small">{{ voice.voice_id }}</p>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 合并下载标签页 -->
+            <div class="tab-pane fade" id="merge" role="tabpanel" aria-labelledby="merge-tab">
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h4>合并语音</h4>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-info">
+                                    <p>请确保所有分段都已生成语音，然后点击下方按钮合并所有语音片段。</p>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <button id="merge-btn" class="btn btn-primary">
+                                            <span class="spinner-border spinner-border-sm loading" role="status" aria-hidden="true"></span>
+                                            合并语音
+                                        </button>
+                                    </div>
+                                    <div>
+                                        <span id="merge-status" class="text-muted">准备就绪</span>
+                                    </div>
+                                </div>
+                                <div id="merge-result" class="mt-4 d-none">
+                                    <div id="merge-error" class="alert alert-danger d-none"></div>
+                                    <div id="merge-success" class="alert alert-success d-none">语音合并成功！</div>
+                                    <div id="merged-audio-container" class="d-none">
+                                        <h5>合并后的语音：</h5>
+                                        <audio id="merged-audio-player" class="audio-player" controls></audio>
+                                        <div class="mt-3">
+                                            <a id="download-link" href="#" class="btn btn-success" download>下载合并后的语音</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分段模板 -->
+    <template id="segment-template">
+        <div class="segment-card card mb-3" data-segment-id="">
+            <div class="card-header segment-header">
+                <div class="d-flex align-items-center">
+                    <span class="drag-handle me-2"><i class="bi bi-grip-vertical"></i>≡</span>
+                    <h5 class="mb-0">分段 <span class="segment-number"></span></h5>
+                </div>
+                <div class="segment-tools">
+                    <button class="btn btn-sm btn-outline-danger remove-segment-btn">删除</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <textarea class="form-control segment-text" rows="3" placeholder="分段文本..."></textarea>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="input-group mb-3">
+                            <span class="input-group-text">音色</span>
+                            <input type="text" class="form-control selected-voice" placeholder="请选择音色..." readonly>
+                            <input type="hidden" class="selected-voice-id">
+                            <button class="btn btn-outline-secondary select-voice-btn" type="button">选择</button>
+                        </div>
+                    </div>
+                    <div class="col-md-6 d-flex justify-content-end">
+                        <button class="btn btn-primary generate-btn">
+                            <span class="spinner-border spinner-border-sm loading" role="status" aria-hidden="true"></span>
+                            生成语音
+                        </button>
+                    </div>
+                </div>
+                <div class="audio-result mt-3 d-none">
+                    <div class="alert alert-danger error-message d-none"></div>
+                    <div class="alert alert-success success-message d-none">语音生成成功！</div>
+                    <div class="audio-container d-none">
+                        <audio class="audio-player" controls></audio>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 元素引用
+            const fullText = document.getElementById('full-text');
+            const splitTextBtn = document.getElementById('split-text-btn');
+            const clearTextBtn = document.getElementById('clear-text-btn');
+            const splitMethod = document.getElementById('split-method');
+            const segmentsContainer = document.getElementById('segments-container');
+            const segmentsList = document.getElementById('segments-list');
+            const addSegmentBtn = document.getElementById('add-segment-btn');
+            const voiceCards = document.querySelectorAll('.voice-card');
+            const voiceSearch = document.getElementById('voice-search');
+            const mergeBtn = document.getElementById('merge-btn');
+            const mergeStatus = document.getElementById('merge-status');
+            const mergeResult = document.getElementById('merge-result');
+            const mergeError = document.getElementById('merge-error');
+            const mergeSuccess = document.getElementById('merge-success');
+            const mergedAudioContainer = document.getElementById('merged-audio-container');
+            const mergedAudioPlayer = document.getElementById('merged-audio-player');
+            const downloadLink = document.getElementById('download-link');
+            
+            // 全局变量
+            let segmentCounter = 0;
+            let selectedVoiceId = null;
+            let selectedVoiceName = '';
+            let generatedSegments = [];
+            
+            // 初始化排序功能
+            let sortable = new Sortable(segmentsList, {
+                animation: 150,
+                handle: '.drag-handle',
+                onEnd: function() {
+                    updateSegmentNumbers();
+                }
+            });
+            
+            // 清空按钮
+            clearTextBtn.addEventListener('click', function() {
+                fullText.value = '';
+            });
+            
+            // 分段处理按钮
+            splitTextBtn.addEventListener('click', function() {
+                const text = fullText.value.trim();
+                if (!text) {
+                    alert('请输入演讲文稿');
+                    return;
+                }
+                
+                // 清空现有分段
+                segmentsList.innerHTML = '';
+                segmentCounter = 0;
+                generatedSegments = [];
+                
+                // 根据选择的方法分段
+                let segments = [];
+                const method = splitMethod.value;
+                
+                if (method === 'sentence') {
+                    // 按句子分段（简单实现，以句号、问号、感叹号为分隔）
+                    segments = text.split(/(?<=[。？！.?!])/)
+                        .filter(s => s.trim().length > 0);
+                } else if (method === 'paragraph') {
+                    // 按段落分段（以换行符为分隔）
+                    segments = text.split(/\n+/)
+                        .filter(s => s.trim().length > 0);
+                } else if (method === 'custom') {
+                    // 自定义分段（以双换行符为分隔）
+                    segments = text.split(/\n\s*\n/)
+                        .filter(s => s.trim().length > 0);
+                }
+                
+                // 如果没有选择音色，提示用户先选择一个默认音色
+                if (!selectedVoiceId && segments.length > 0) {
+                    const useDefaultVoice = confirm('您还没有选择默认音色，是否先前往选择一个默认音色？');
+                    if (useDefaultVoice) {
+                        document.getElementById('voices-tab').click();
+                        return;
+                    }
+                }
+                
+                // 创建分段元素
+                segments.forEach(segment => {
+                    addSegment(segment.trim());
+                });
+                
+                // 显示分段容器
+                segmentsContainer.classList.remove('d-none');
+            });
+            
+            // 添加分段按钮
+            addSegmentBtn.addEventListener('click', function() {
+                // 如果没有选择音色，提示用户先选择一个默认音色
+                if (!selectedVoiceId) {
+                    const useDefaultVoice = confirm('您还没有选择默认音色，是否先前往选择一个默认音色？');
+                    if (useDefaultVoice) {
+                        document.getElementById('voices-tab').click();
+                        return;
+                    }
+                }
+                addSegment();
+            });
+            
+            // 添加分段函数
+            function addSegment(text = '') {
+                segmentCounter++;
+                const template = document.getElementById('segment-template');
+                const clone = document.importNode(template.content, true);
+                
+                const segmentCard = clone.querySelector('.segment-card');
+                segmentCard.dataset.segmentId = `segment-${segmentCounter}`;
+                
+                const segmentNumber = clone.querySelector('.segment-number');
+                segmentNumber.textContent = segmentCounter;
+                
+                const segmentText = clone.querySelector('.segment-text');
+                segmentText.value = text;
+                
+                // 默认使用当前选中的音色
+                if (selectedVoiceId && selectedVoiceName) {
+                    const selectedVoiceInput = clone.querySelector('.selected-voice');
+                    const selectedVoiceIdInput = clone.querySelector('.selected-voice-id');
+                    selectedVoiceInput.value = selectedVoiceName;
+                    selectedVoiceIdInput.value = selectedVoiceId;
+                }
+                
+                // 删除按钮
+                const removeBtn = clone.querySelector('.remove-segment-btn');
+                removeBtn.addEventListener('click', function() {
+                    segmentCard.remove();
+                    updateSegmentNumbers();
+                });
+                
+                // 选择音色按钮
+                const selectVoiceBtn = clone.querySelector('.select-voice-btn');
+                const selectedVoiceInput = clone.querySelector('.selected-voice');
+                const selectedVoiceIdInput = clone.querySelector('.selected-voice-id');
+                
+                selectVoiceBtn.addEventListener('click', function() {
+                    // 切换到音色选择标签页
+                    document.getElementById('voices-tab').click();
+                    
+                    // 标记当前选择的分段
+                    document.querySelectorAll('.segment-card').forEach(card => {
+                        card.classList.remove('selected');
+                    });
+                    segmentCard.classList.add('selected');
+                });
+                
+                // 生成语音按钮
+                const generateBtn = clone.querySelector('.generate-btn');
+                const loadingSpinner = clone.querySelector('.loading');
+                const audioResult = clone.querySelector('.audio-result');
+                const errorMessage = clone.querySelector('.error-message');
+                const successMessage = clone.querySelector('.success-message');
+                const audioContainer = clone.querySelector('.audio-container');
+                const audioPlayer = clone.querySelector('.audio-player');
+                
+                generateBtn.addEventListener('click', function() {
+                    const text = segmentText.value.trim();
+                    const voiceId = selectedVoiceIdInput.value;
+                    
+                    if (!text) {
+                        alert('请输入文本');
+                        return;
+                    }
+                    
+                    if (!voiceId) {
+                        alert('请选择音色');
+                        return;
+                    }
+                    
+                    // 显示加载状态
+                    loadingSpinner.style.display = 'inline-block';
+                    generateBtn.disabled = true;
+                    errorMessage.classList.add('d-none');
+                    successMessage.classList.add('d-none');
+                    audioContainer.classList.add('d-none');
+                    audioResult.classList.remove('d-none');
+                    
+                    // 发送请求
+                    const formData = new FormData();
+                    formData.append('text', text);
+                    formData.append('voice_id', voiceId);
+                    formData.append('segment_id', segmentCard.dataset.segmentId);
+                    
+                    fetch('/generate_segment', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        loadingSpinner.style.display = 'none';
+                        generateBtn.disabled = false;
+                        
+                        if (data.error) {
+                            errorMessage.textContent = data.error;
+                            errorMessage.classList.remove('d-none');
+                        } else {
+                            successMessage.classList.remove('d-none');
+                            audioContainer.classList.remove('d-none');
+                            audioPlayer.src = data.audio_url;
+                            audioPlayer.setAttribute('data-filename', data.filename);
+                            audioPlayer.play();
+                            
+                            // 标记为已生成
+                            segmentCard.classList.add('generated');
+                            
+                            // 保存生成的分段信息
+                            const segmentInfo = {
+                                id: segmentCard.dataset.segmentId,
+                                text: text,
+                                voice_id: voiceId,
+                                audio_url: data.audio_url,
+                                filename: data.filename
+                            };
+                            
+                            // 更新或添加到生成的分段列表
+                            const existingIndex = generatedSegments.findIndex(s => s.id === segmentInfo.id);
+                            if (existingIndex !== -1) {
+                                generatedSegments[existingIndex] = segmentInfo;
+                            } else {
+                                generatedSegments.push(segmentInfo);
+                            }
+                            
+                            // 更新合并状态
+                            updateMergeStatus();
+                        }
+                    })
+                    .catch(error => {
+                        loadingSpinner.style.display = 'none';
+                        generateBtn.disabled = false;
+                        errorMessage.textContent = '请求失败: ' + error.message;
+                        errorMessage.classList.remove('d-none');
+                    });
+                });
+                
+                segmentsList.appendChild(clone);
+            }
+            
+            // 更新分段编号
+            function updateSegmentNumbers() {
+                const segments = document.querySelectorAll('.segment-card');
+                segments.forEach((segment, index) => {
+                    segment.querySelector('.segment-number').textContent = index + 1;
+                });
+            }
+            
+            // 音色选择
+            voiceCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    voiceCards.forEach(c => c.classList.remove('selected'));
+                    this.classList.add('selected');
+                    
+                    selectedVoiceId = this.dataset.voiceId;
+                    selectedVoiceName = this.dataset.voiceName || selectedVoiceId;
+                    
+                    // 如果有选中的分段，则设置其音色
+                    const selectedSegment = document.querySelector('.segment-card.selected');
+                    if (selectedSegment) {
+                        selectedSegment.querySelector('.selected-voice').value = selectedVoiceName;
+                        selectedSegment.querySelector('.selected-voice-id').value = selectedVoiceId;
+                        selectedSegment.classList.remove('selected');
+                        
+                        // 切回编辑标签页
+                        document.getElementById('editor-tab').click();
+                    } else {
+                        // 如果没有选中的分段，则显示已选择默认音色的提示
+                        alert(`已选择默认音色：${selectedVoiceName}`);
+                        // 切回编辑标签页
+                        document.getElementById('editor-tab').click();
+                    }
+                });
+            });
+            
+            // 搜索音色
+            voiceSearch.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                voiceCards.forEach(card => {
+                    const voiceName = card.dataset.voiceName.toLowerCase();
+                    const voiceId = card.dataset.voiceId.toLowerCase();
+                    if (voiceName.includes(searchTerm) || voiceId.includes(searchTerm)) {
+                        card.style.display = '';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+            
+            // 更新合并状态
+            function updateMergeStatus() {
+                const segments = document.querySelectorAll('.segment-card');
+                const generatedCount = document.querySelectorAll('.segment-card.generated').length;
+                
+                mergeStatus.textContent = `已生成 ${generatedCount}/${segments.length} 个分段`;
+                
+                if (generatedCount === segments.length && segments.length > 0) {
+                    mergeStatus.textContent = '所有分段已生成，可以合并';
+                    mergeStatus.classList.remove('text-muted');
+                    mergeStatus.classList.add('text-success');
+                } else {
+                    mergeStatus.classList.add('text-muted');
+                    mergeStatus.classList.remove('text-success');
+                }
+            }
+            
+            // 合并按钮
+            mergeBtn.addEventListener('click', function() {
+                const segments = document.querySelectorAll('.segment-card');
+                const generatedCount = document.querySelectorAll('.segment-card.generated').length;
+                
+                if (generatedCount !== segments.length || segments.length === 0) {
+                    alert('请确保所有分段都已生成语音');
+                    return;
+                }
+                
+                // 显示加载状态
+                const loadingSpinner = mergeBtn.querySelector('.loading');
+                loadingSpinner.style.display = 'inline-block';
+                mergeBtn.disabled = true;
+                mergeError.classList.add('d-none');
+                mergeSuccess.classList.add('d-none');
+                mergedAudioContainer.classList.add('d-none');
+                mergeResult.classList.remove('d-none');
+                
+                // 获取当前排序后的分段
+                const orderedSegments = [];
+                document.querySelectorAll('.segment-card.generated').forEach(card => {
+                    const audioPlayer = card.querySelector('audio');
+                    if (audioPlayer && audioPlayer.src) {
+                        const filename = audioPlayer.getAttribute('data-filename');
+                        if (filename) {
+                            orderedSegments.push({
+                                segmentId: card.dataset.segmentId,
+                                filename: filename
+                            });
+                        }
+                    }
+                });
+                
+                // 发送请求
+                fetch('/merge_segments', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        segments: orderedSegments
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    loadingSpinner.style.display = 'none';
+                    mergeBtn.disabled = false;
+                    
+                    if (data.error) {
+                        mergeError.textContent = data.error;
+                        mergeError.classList.remove('d-none');
+                    } else {
+                        mergeSuccess.classList.remove('d-none');
+                        mergedAudioContainer.classList.remove('d-none');
+                        mergedAudioPlayer.src = data.audio_url;
+                        downloadLink.href = data.audio_url;
+                        downloadLink.download = data.filename;
+                    }
+                })
+                .catch(error => {
+                    loadingSpinner.style.display = 'none';
+                    mergeBtn.disabled = false;
+                    mergeError.textContent = '请求失败: ' + error.message;
+                    mergeError.classList.remove('d-none');
+                });
+            });
+        });
+    </script>
+</body>
+</html>
